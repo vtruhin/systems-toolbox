@@ -24,9 +24,8 @@
   "Handle incoming messages: process / add to application state."
   [app put-fn msg]
   (match msg
-         [:cmd/mouse-pos         _] (mouse-pos-from-server! app msg)
-         [:cmd/mouse-pos-local pos] (swap! app assoc :pos pos)
-         :else (prn "unknown msg in data-loop" msg)))
+         [:cmd/mouse-pos _] (mouse-pos-from-server! app msg)
+         :else              (prn "unknown msg in data-loop" msg)))
 
 (defn mk-state
   "Return clean initial component state atom."

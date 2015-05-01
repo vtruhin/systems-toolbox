@@ -10,8 +10,8 @@
 (defn trailing-circles
   "Displays two transparent circles where one is drawn directly on the client and the other is drawn after a roundtrip.
   This makes it easier to experience any delays."
-  [state]
-  (let [pos (:pos state)
+  [state local]
+  (let [pos (:pos local)
         from-server (:from-server state)]
     [:g
      [:circle (merge circle-defaults {:cx (:x pos) :cy (:y pos)})]
@@ -20,7 +20,7 @@
 (defn text-view
   "Renders SVG with an area in which mouse moves are detected. They are then sent to the server and the round-trip
   time is measured."
-  [state pos mean mn mx last-rt]
+  [state local pos mean mn mx last-rt]
   [:g
    [:text (merge text-bold {:x 30 :y 20}) "Mouse Moves Processed:"]
    [:text (merge text-default {:x 183 :y 20}) (:count state)]
@@ -34,32 +34,32 @@
 
 (defn mouse-move-ev-handler
   "Handler function for mouse move events, triggered when mouse is moved above SVG. Sends coordinates to server."
-  [app put-fn curr-cmp]
+  [local put-fn curr-cmp]
   (fn [ev]
     (let [rect (-> curr-cmp rc/dom-node .getBoundingClientRect)
           pos {:x (- (.-clientX ev) (.-left rect)) :y (.toFixed (- (.-clientY ev) (.-top rect)) 0)}]
-      (put-fn [:cmd/mouse-pos-local pos])
+      (swap! local assoc :pos pos)
       (put-fn [:cmd/mouse-pos pos])
       (.stopPropagation ev))))
 
 (defn touch-move-ev-handler
   "Handler function for touch move events, triggered when finger is moved above SVG. Sends coordinates to server."
-  [app put-fn curr-cmp]
+  [local put-fn curr-cmp]
   (fn [ev]
     (let [rect (-> curr-cmp rc/dom-node .getBoundingClientRect)
           t (aget (.-targetTouches ev) 0)
           pos {:x (- (.-clientX t) (.-left rect)) :y (.toFixed (- (.-clientY t) (.-top rect)) 0)}]
-      (swap! app assoc :pos pos)
+      (swap! local assoc :pos pos)
       (put-fn [:cmd/mouse-pos pos])
       (.stopPropagation ev))))
 
 (defn mouse-view
   "Renders SVG with an area in which mouse moves are detected. They are then sent to the server and the round-trip
   time is measured."
-  [app local put-fn mouse-div]
+  [app local put-fn]
   (let [state @app
         mouse-div (by-id "mouse")
-        pos (:pos state)
+        pos (:pos @local)
         last-rt (:rt-time (:from-server state))
         rtt-times (:rtt-times state)
         mx (apply max rtt-times)
@@ -68,9 +68,15 @@
     [:div.pure-u-1 {:style {:border-color :darkgray :border-width "1px" :border-style :solid}}
      [:svg {:width         (- (.-offsetWidth mouse-div) 2) :height 200
             :style         {:background-color :white}
-            :on-mouse-move (mouse-move-ev-handler app put-fn (rc/current-component))
-            :on-touch-move (touch-move-ev-handler app put-fn (rc/current-component))}
-      (text-view state pos (.toFixed mean 0) mn mx last-rt)
-      (trailing-circles state)]]))
+            :on-mouse-move (mouse-move-ev-handler local put-fn (rc/current-component))
+            :on-touch-move (touch-move-ev-handler local put-fn (rc/current-component))}
+      (text-view state local pos (.toFixed mean 0) mn mx last-rt)
+      (trailing-circles state @local)]
+     [:form.pure-form
+      [:fieldset
+       [:select.form-control
+        [:option "No delay"]
+        [:option "Simple delay: normal distribution"]
+        [:option "Default plus random delay"]]]]]))
 
 (defn component [cmp-id] (r/component cmp-id mouse-view "mouse" {}))
